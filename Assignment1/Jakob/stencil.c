@@ -9,13 +9,26 @@ int main(int argc, char **argv) {
 	char *input_name = argv[1];
 	char *output_name = argv[2];
 	int num_steps = atoi(argv[3]);
+	int size, rank, num_values;
+	int root = 0;
+	MPI_Status status;
+
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	printf("Haha from %d\n", rank);
 
 	// Read input file
 	double *input;
-	int num_values;
-	if (0 > (num_values = read_input(input_name, &input))) {
-		return 2;
+	if(rank == 0){
+		if (0 > (num_values = read_input(input_name, &input))) {
+			return 2;
+		}
 	}
+	MPI_Bcast(&num_values, 1, MPI_INT, root, MPI_COMM_WORLD);
+	printf("Now Core %d has num_values = %d\n", rank, num_values);
+
 
 	// Stencil values
 	double h = 2.0*PI/num_values;
@@ -80,6 +93,8 @@ int main(int argc, char **argv) {
 
 	// Clean up
 	free(output);
+
+	MPI_Finalize();
 
 	return 0;
 }
