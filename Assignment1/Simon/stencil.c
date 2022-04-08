@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	free(input);
+	printf("gay\n");
 	// Stop timer
 	double my_execution_time = MPI_Wtime() - start;
 
