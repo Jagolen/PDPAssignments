@@ -1,4 +1,4 @@
-#include "stencil_serial.h"
+#include "stencil.h"
 
 
 int main(int argc, char **argv) {
@@ -12,12 +12,20 @@ int main(int argc, char **argv) {
 	char *output_name = argv[2];
 	int num_steps = atoi(argv[3]);
     int size, rank, num_values;
+	const int period = 1;
     double *input;
 
     //Initializing MPI and defining rank and size
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    //Creating a cartesian topology and get the ranks
+    MPI_Comm cart;
+    MPI_Cart_create(MPI_COMM_WORLD, 1, &size, &period, 1, &cart);
+
+
+    MPI_Comm_rank(cart, &rank);
+    
 
     //Rank 0 reads the input data which is then broadcasted to everyone
     
