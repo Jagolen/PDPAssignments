@@ -1,4 +1,4 @@
-#include "stencil.h"
+#include "stencil_serial.h"
 
 
 int main(int argc, char **argv) {
@@ -6,97 +6,64 @@ int main(int argc, char **argv) {
 		printf("Usage: stencil input_file output_file number_of_applications\n");
 		return 1;
 	}
+
+    //Declaring input data and initial variable
 	char *input_name = argv[1];
 	char *output_name = argv[2];
 	int num_steps = atoi(argv[3]);
-	int size, rank, num_values;
-	int root = 0;
-	MPI_Status status;
+    int size, rank, num_values;
+    double *input;
 
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
+    //Initializing MPI and defining rank and size
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	printf("Haha from %d\n", rank);
-
-	// Read input file
-	double *input;
-	if(rank == 0){
-		if (0 > (num_values = read_input(input_name, &input))) {
-			return 2;
-		}
-	}
-	MPI_Bcast(&num_values, 1, MPI_INT, root, MPI_COMM_WORLD);
-	printf("Now Core %d has num_values = %d\n", rank, num_values);
+    //Rank 0 reads the input data which is then broadcasted to everyone
+    
+    //TEST CODE REMOVE LATER
+    if(rank == 0){
+        input = (double*)malloc(12*sizeof(double));
+        for(int i = 0; i<12; i++)
+            input[i] = i;
+        num_values = 12;
+    }
 
 
-	// Stencil values
-	double h = 2.0*PI/num_values;
-	const int STENCIL_WIDTH = 5;
-	const int EXTENT = STENCIL_WIDTH/2;
-	const double STENCIL[] = {1.0/(12*h), -8.0/(12*h), 0.0, 8.0/(12*h), -1.0/(12*h)};
 
-	// Start timer
-	double start = MPI_Wtime();
+/*     if(rank == 0){
+        	if (0 > (num_values = read_input(input_name, &input))) {
+		        return 2;
+	    }
+    } */
+    MPI_Bcast(&num_values, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	// Allocate data for result
-	double *output;
-	if (NULL == (output = malloc(num_values * sizeof(double)))) {
-		perror("Couldn't allocate memory for output");
-		return 2;
-	}
-	// Repeatedly apply stencil
-	for (int s=0; s<num_steps; s++) {
-		// Apply stencil
-		for (int i=0; i<EXTENT; i++) {
-			double result = 0;
-			for (int j=0; j<STENCIL_WIDTH; j++) {
-				int index = (i - EXTENT + j + num_values) % num_values;
-				result += STENCIL[j] * input[index];
-			}
-			output[i] = result;
-		}
-		for (int i=EXTENT; i<num_values-EXTENT; i++) {
-			double result = 0;
-			for (int j=0; j<STENCIL_WIDTH; j++) {
-				int index = i - EXTENT + j;
-				result += STENCIL[j] * input[index];
-			}
-			output[i] = result;
-		}
-		for (int i=num_values-EXTENT; i<num_values; i++) {
-			double result = 0;
-			for (int j=0; j<STENCIL_WIDTH; j++) {
-				int index = (i - EXTENT + j) % num_values;
-				result += STENCIL[j] * input[index];
-			}
-			output[i] = result;
-		}
-		// Swap input and output
-		if (s < num_steps-1) {
-			double *tmp = input;
-			input = output;
-			output = tmp;
-		}
-	}
-	free(input);
-	// Stop timer
-	double my_execution_time = MPI_Wtime() - start;
+    //This many vals in each process
+    int vals_per_pc = num_values/size;
 
-	// Write result
-	printf("%f\n", my_execution_time);
-#ifdef PRODUCE_OUTPUT_FILE
-	if (0 != write_output(output_name, output, num_values)) {
-		return 2;
-	}
-#endif
+    /*Creating local input and output arrays of same siza as number of values per processor
+    with padding of length 2 on both left and right side of the array
+    */
 
-	// Clean up
-	free(output);
+    double *localinput = (double*)malloc((4+vals_per_pc)*sizeof(double));
+    double *localoutput = (double*)malloc((4+vals_per_pc)*sizeof(double));
+    double *l_in = &localinput[2];
+    double *l_out = &localoutput[2];
 
-	MPI_Finalize();
+    MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-	return 0;
+    for(int i = 0; i<vals_per_pc; i++){
+        printf("Element %d in process %d is %f\n",i,rank,l_in[i]);
+    }
+
+    //Free the local arrays
+
+    free(localinput);
+    free(localoutput);
+
+    //End of program
+    MPI_Finalize();
+    return 0;
 }
 
 
