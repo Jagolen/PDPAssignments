@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 	char *input_name = argv[1];
 	char *output_name = argv[2];
 	int num_steps = atoi(argv[3]);
-    int size, rank, num_values;
+    int size, rank, left, right, num_values;
 	const int period = 1;
     double *input;
 
@@ -19,12 +19,15 @@ int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    //Creating a cartesian topology and get the ranks
+    //Creating a cartesian topology and get the ranks and neighbors
     MPI_Comm cart;
     MPI_Cart_create(MPI_COMM_WORLD, 1, &size, &period, 1, &cart);
-
-
     MPI_Comm_rank(cart, &rank);
+
+	//
+	int temp = rank;
+	MPI_Cart_shift(cart, 0, -1, &temp, &left);
+	MPI_Cart_shift(cart, 0, 1, &temp, &right);
     
 
     //Rank 0 reads the input data which is then broadcasted to everyone
@@ -58,11 +61,19 @@ int main(int argc, char **argv) {
     double *l_in = &localinput[2];
     double *l_out = &localoutput[2];
 
-    MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
 
     for(int i = 0; i<vals_per_pc; i++){
         printf("Element %d in process %d is %f\n",i,rank,l_in[i]);
     }
+	printf("For process %d: left = %d, right = %d\n",rank,left,right);
+
+	// Stencil values
+	double h = 2.0*PI/num_values;
+	const int STENCIL_WIDTH = 5;
+	const int EXTENT = STENCIL_WIDTH/2;
+	const double STENCIL[] = {1.0/(12*h), -8.0/(12*h), 0.0, 8.0/(12*h), -1.0/(12*h)};
+
 
     //Free the local arrays
 
