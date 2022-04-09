@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 		        return 2;
 	    }
     } */
-    MPI_Bcast(&num_values, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&num_values, 1, MPI_INT, 0, cart);
 
     //This many vals in each process
     int vals_per_pc = num_values/size;
