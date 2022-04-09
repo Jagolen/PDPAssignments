@@ -16,15 +16,18 @@ int main(int argc, char *argv[]){
     mybuf[0]=me; mybuf[1]=me+1;
     ndims = 2;
     dims[0] = sqrt(numprocs); dims[1] = sqrt(numprocs);
-    periods[0] = 1; periods[1] = 1; reorder=0;
+    periods[0] = 1; periods[1] = 1; reorder=1;
 
   MPI_Cart_create(MPI_COMM_WORLD,ndims,dims,periods,reorder,&comm2D);
   MPI_Cart_shift(comm2D,0, 1,&source,&east);
   MPI_Cart_shift(comm2D,0,-1,&source,&west);
   MPI_Cart_shift(comm2D,1, 1,&source,&north);
   MPI_Cart_shift(comm2D,1,-1,&source,&south);
-  printf("For %d north-west-me-east-south: %d <- %d <- %d ->%d ->%d \n",
-                                          me,north,west,me,east,south);  
+  printf("For %d\n", me);
+  printf("     %d\n     ^\n", north);
+  
+  printf("%d <- %d -> %d\n", west, me, east);
+  printf("     v\n     %d\n", south);
   printf("Before: for %d: mybuf[%d, %d] \n", me, mybuf[0], mybuf[1]);
   MPI_Sendrecv_replace(mybuf, 2, MPI_INT, west, 99, east, 99, comm2D, &status);
   printf("After: for %d: mybuf[%d, %d] \n", me, mybuf[0], mybuf[1]);
