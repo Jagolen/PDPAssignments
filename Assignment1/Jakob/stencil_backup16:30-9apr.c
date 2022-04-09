@@ -25,8 +25,11 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(cart, &rank);
 
 	//Finding the neighbors
-	MPI_Cart_shift(cart, 0, 1, &left, &right);
+	int temp = rank;
+	MPI_Cart_shift(cart, 0, -1, &temp, &left);
+	MPI_Cart_shift(cart, 0, 1, &temp, &right);
     
+
     //Rank 0 reads the input data which is then broadcasted to everyone
     
     //TEST CODE REMOVE LATER
@@ -54,8 +57,9 @@ int main(int argc, char **argv) {
     */
 
     double *localinput = (double*)malloc((4+vals_per_pc)*sizeof(double));
-    double *l_out = (double*)malloc((vals_per_pc)*sizeof(double));
+    double *localoutput = (double*)malloc((4+vals_per_pc)*sizeof(double));
     double *l_in = &localinput[2];
+    double *l_out = &localoutput[2];
 
     MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
 
@@ -74,11 +78,9 @@ int main(int argc, char **argv) {
     //Free the local arrays
 
     free(localinput);
-    free(l_out);
+    free(localoutput);
 
     //End of program
-	if(rank == 0) free(input);
-	MPI_Comm_free(&cart);
     MPI_Finalize();
     return 0;
 }
