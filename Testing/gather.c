@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "print_array.h"
+#include <print_array.h>
 
 #define ROOT 0
 
