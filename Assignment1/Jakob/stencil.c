@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
 	int num_steps = atoi(argv[3]);
     int size, rank, west, east, num_values;
 	const int period = 1;
-    double *input;
+    double *in_out;
 
     //Initializing MPI and defining rank and size
     MPI_Init(&argc, &argv);
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
 
     if(rank == 0){
-        	if (0 > (num_values = read_input(input_name, &input))) {
+        	if (0 > (num_values = read_input(input_name, &in_out))) {
 		        return 2;
 	    }
     }
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     double *l_out = (double*)malloc((vals_per_pc)*sizeof(double));
     double *l_in = &buflocalinput[2];
 
-    MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
+    MPI_Scatter(in_out, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
 
 	// Stencil values
 	double h = 2.0*PI/num_values;
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
 	//Performing the stencil on the elements in the middle first
 
 	for(int i = EXTENT; i<vals_per_pc-EXTENT; i++){
-		int result = 0;
+		double result = 0;
 		for(int j = 0; j<STENCIL_WIDTH;j++){
 			int index = i-EXTENT+j;
 			result += STENCIL[j]*l_in[index];
@@ -96,8 +96,9 @@ int main(int argc, char **argv) {
 
 	//Waiting for the data from the west to be recieved and then perform the stencil on the left elements
 	MPI_Wait(&w_rec_req, &w_stat);
+	
 	for(int i = 0; i<EXTENT; i++){
-		int result = 0;
+		double result = 0;
 		for(int j = 0; j<STENCIL_WIDTH;j++){
 			int index = i-EXTENT+j;
 			result += STENCIL[j]*l_in[index];
@@ -108,7 +109,7 @@ int main(int argc, char **argv) {
 	//Waiting for the data from the east to be recieved and then perform the stencil on the right elements
 	MPI_Wait(&e_rec_req, &e_stat);
 	for(int i = vals_per_pc-EXTENT; i<vals_per_pc; i++){
-		int result = 0;
+		double result = 0;
 		for(int j = 0; j<STENCIL_WIDTH;j++){
 			int index = i-EXTENT+j;
 			result += STENCIL[j]*l_in[index];
@@ -116,8 +117,21 @@ int main(int argc, char **argv) {
 		l_out[i] = result;
 	}
 
+	if(rank == 0) printf("process 0 got %f and %f from %d and %f and %f from %d\n",
+		buflocalinput[0], buflocalinput[1], west, buflocalinput[vals_per_pc], 
+			buflocalinput[vals_per_pc+1], east);
+	//Copying values from output to input so the stencil can be applied again
 	for(int i = 0; i<vals_per_pc; i++){
 		l_in[i] = l_out[i];
+	}
+
+
+	//Gathering each contribution from the processess
+	MPI_Gather(l_out, vals_per_pc, MPI_DOUBLE, in_out, vals_per_pc, MPI_DOUBLE, 0, cart);
+
+	//Process 0 creates an output file
+	if (0 != write_output(output_name, in_out, num_values)) {
+		return 2;
 	}
 
 	//printf("Process %d recieved %f and %f from process %d\n",rank,buflocalinput[0], buflocalinput[1],west);
@@ -128,9 +142,9 @@ int main(int argc, char **argv) {
 	//Free the local arrays
     free(buflocalinput);
     free(l_out);
-
-    //End of program
-	if(rank == 0) free(input);
+	if(rank == 0) free(in_out);
+    
+	//End of program
 	MPI_Type_free(&edge);
 	MPI_Comm_free(&cart);
     MPI_Finalize();
