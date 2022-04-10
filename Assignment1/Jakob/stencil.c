@@ -124,11 +124,17 @@ int main(int argc, char **argv) {
 	MPI_Gather(l_out, vals_per_pc, MPI_DOUBLE, in_out, vals_per_pc, MPI_DOUBLE, 0, cart);
 	MPI_Gather(&my_execution_time, 1, MPI_DOUBLE, timing, 1, MPI_DOUBLE, 0, cart);
 
-	//Process 0 creates an output file
+
+	//Process 0 creates an output file and prints the highest time
 	if(rank == 0){
 		if (0 != write_output(output_name, in_out, num_values)) {
 			return 2;
 		}
+		double max_time = timing[0];
+		for(int i = 1; i<size; i++){
+			if(max_time < timing[i]) max_time = timing[i];
+		}
+		printf("%f\n", max_time);
 	}
 	
 	//Free the local arrays
