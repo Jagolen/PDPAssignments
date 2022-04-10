@@ -78,8 +78,8 @@ int main(int argc, char **argv) {
 	MPI_Request w_send_req, e_send_req, w_rec_req, e_rec_req;
 	
 	//Sending and recieving data between neighbors
-	MPI_Isend(&l_in[0],1,edge,west,west,cart,&w_send_req);
 	MPI_Isend(&l_in[vals_per_pc-EXTENT],1,edge,east,east,cart,&e_send_req);
+	MPI_Isend(&l_in[0],1,edge,west,west,cart,&w_send_req);	
 	MPI_Irecv(&buflocalinput[0],1,edge,west,rank,cart,&w_rec_req);
 	MPI_Irecv(&buflocalinput[vals_per_pc+EXTENT],1,edge,east,rank,cart,&e_rec_req);
 
@@ -96,7 +96,6 @@ int main(int argc, char **argv) {
 
 	//Waiting for the data from the west to be recieved and then perform the stencil on the left elements
 	MPI_Wait(&w_rec_req, &w_stat);
-	
 	for(int i = 0; i<EXTENT; i++){
 		double result = 0;
 		for(int j = 0; j<STENCIL_WIDTH;j++){
@@ -117,21 +116,33 @@ int main(int argc, char **argv) {
 		l_out[i] = result;
 	}
 
-	if(rank == 0) printf("process 0 got %f and %f from %d and %f and %f from %d\n",
-		buflocalinput[0], buflocalinput[1], west, buflocalinput[vals_per_pc], 
-			buflocalinput[vals_per_pc+1], east);
-	//Copying values from output to input so the stencil can be applied again
+	if(rank == 0){
+		printf("INPUT = [");
+		for(int i = 0; i<(vals_per_pc+4);i++){
+			printf("%f ", buflocalinput[i]);
+		}
+		printf("]\n");
+	}
+
 	for(int i = 0; i<vals_per_pc; i++){
 		l_in[i] = l_out[i];
 	}
-
-
 	//Gathering each contribution from the processess
 	MPI_Gather(l_out, vals_per_pc, MPI_DOUBLE, in_out, vals_per_pc, MPI_DOUBLE, 0, cart);
 
+	if(rank == 0){
+		printf("Gathered_data = [");
+		for(int i = 0; i<num_values;i++){
+			printf("%f ", in_out[i]);
+		}
+		printf("]\n");
+	}
+
 	//Process 0 creates an output file
-	if (0 != write_output(output_name, in_out, num_values)) {
-		return 2;
+	if(rank == 0){
+		if (0 != write_output(output_name, in_out, num_values)) {
+			return 2;
+		}
 	}
 
 	//printf("Process %d recieved %f and %f from process %d\n",rank,buflocalinput[0], buflocalinput[1],west);
