@@ -140,7 +140,10 @@ int main(int argc, char **argv) {
 	//Free the local arrays
     free(buflocalinput);
     free(l_out);
-	if(rank == 0) free(in_out);
+	if(rank == 0){
+		free(in_out);
+		free(timing);
+	}
     
 	//End of program
 	MPI_Type_free(&edge);
