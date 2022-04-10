@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 	char *input_name = argv[1];
 	char *output_name = argv[2];
 	int num_steps = atoi(argv[3]);
-    int size, rank, left, right, num_values;
+    int size, rank, west, east, num_values;
 	const int period = 1;
     double *input;
 
@@ -25,44 +25,42 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(cart, &rank);
 
 	//Finding the neighbors
-	MPI_Cart_shift(cart, 0, 1, &left, &right);
+	MPI_Cart_shift(cart, 0, 1, &west, &east);
+
+	//Statuses for left and right
+	MPI_Status w_stat, e_stat;
     
     //Rank 0 reads the input data which is then broadcasted to everyone
     
     //TEST CODE REMOVE LATER
-    if(rank == 0){
+/*     if(rank == 0){
         input = (double*)malloc(12*sizeof(double));
         for(int i = 0; i<12; i++)
             input[i] = i;
         num_values = 12;
-    }
+    } */
 
 
 
-/*     if(rank == 0){
+    if(rank == 0){
         	if (0 > (num_values = read_input(input_name, &input))) {
 		        return 2;
 	    }
-    } */
+    }
     MPI_Bcast(&num_values, 1, MPI_INT, 0, cart);
 
     //This many vals in each process
     int vals_per_pc = num_values/size;
 
-    /*Creating local input and output arrays of same siza as number of values per processor
+    /*Creating local input and output arrays of same size as number of values per processor
     with padding of length 2 on both left and right side of the array
     */
 
-    double *localinput = (double*)malloc((4+vals_per_pc)*sizeof(double));
+    double *buflocalinput = (double*)malloc((4+vals_per_pc)*sizeof(double));
     double *l_out = (double*)malloc((vals_per_pc)*sizeof(double));
-    double *l_in = &localinput[2];
+    double *l_in = &buflocalinput[2];
 
     MPI_Scatter(input, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
-
-    for(int i = 0; i<vals_per_pc; i++){
-        printf("Element %d in process %d is %f\n",i,rank,l_in[i]);
-    }
-	printf("For process %d: left = %d, right = %d\n",rank,left,right);
 
 	// Stencil values
 	double h = 2.0*PI/num_values;
@@ -71,13 +69,69 @@ int main(int argc, char **argv) {
 	const double STENCIL[] = {1.0/(12*h), -8.0/(12*h), 0.0, 8.0/(12*h), -1.0/(12*h)};
 
 
-    //Free the local arrays
+	//Creating the data type to send two elements to a neighbor
+	MPI_Datatype edge;
+	MPI_Type_contiguous(EXTENT, MPI_DOUBLE, &edge);
+	MPI_Type_commit(&edge);
 
-    free(localinput);
+	//Setting up request handles
+	MPI_Request w_send_req, e_send_req, w_rec_req, e_rec_req;
+	
+	//Sending and recieving data between neighbors
+	MPI_Isend(&l_in[0],1,edge,west,west,cart,&w_send_req);
+	MPI_Isend(&l_in[vals_per_pc-EXTENT],1,edge,east,east,cart,&e_send_req);
+	MPI_Irecv(&buflocalinput[0],1,edge,west,rank,cart,&w_rec_req);
+	MPI_Irecv(&buflocalinput[vals_per_pc+EXTENT],1,edge,east,rank,cart,&e_rec_req);
+
+	//Performing the stencil on the elements in the middle first
+
+	for(int i = EXTENT; i<vals_per_pc-EXTENT; i++){
+		int result = 0;
+		for(int j = 0; j<STENCIL_WIDTH;j++){
+			int index = i-EXTENT+j;
+			result += STENCIL[j]*l_in[index];
+		}
+		l_out[i] = result;
+	}
+
+	//Waiting for the data from the west to be recieved and then perform the stencil on the left elements
+	MPI_Wait(&w_rec_req, &w_stat);
+	for(int i = 0; i<EXTENT; i++){
+		int result = 0;
+		for(int j = 0; j<STENCIL_WIDTH;j++){
+			int index = i-EXTENT+j;
+			result += STENCIL[j]*l_in[index];
+		}
+		l_out[i] = result;
+	}
+
+	//Waiting for the data from the east to be recieved and then perform the stencil on the right elements
+	MPI_Wait(&e_rec_req, &e_stat);
+	for(int i = vals_per_pc-EXTENT; i<vals_per_pc; i++){
+		int result = 0;
+		for(int j = 0; j<STENCIL_WIDTH;j++){
+			int index = i-EXTENT+j;
+			result += STENCIL[j]*l_in[index];
+		}
+		l_out[i] = result;
+	}
+
+	for(int i = 0; i<vals_per_pc; i++){
+		l_in[i] = l_out[i];
+	}
+
+	//printf("Process %d recieved %f and %f from process %d\n",rank,buflocalinput[0], buflocalinput[1],west);
+	//printf("Process %d recieved %f and %f from process %d\n",rank,buflocalinput[vals_per_pc+EXTENT], buflocalinput[vals_per_pc+EXTENT+1],east);
+    
+	
+	
+	//Free the local arrays
+    free(buflocalinput);
     free(l_out);
 
     //End of program
 	if(rank == 0) free(input);
+	MPI_Type_free(&edge);
 	MPI_Comm_free(&cart);
     MPI_Finalize();
     return 0;
