@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    //Creating a cartesian topology and get the ranks
+    //Creating a cartesian topology and get the ranks and neighbors
     MPI_Comm cart;
     MPI_Cart_create(MPI_COMM_WORLD, 1, &size, &period, 1, &cart);
     MPI_Comm_rank(cart, &rank);
@@ -30,8 +30,8 @@ int main(int argc, char **argv) {
 	//Statuses for left and right
 	MPI_Status w_stat, e_stat;
     
-    /*Rank 0 reads the input data which is then broadcasted to everyone
-	and allocates memory to save the timings*/
+    //Rank 0 reads the input data which is then broadcasted to everyone
+
     if(rank == 0){
         	if (0 > (num_values = read_input(input_name, &in_out))) {
 		        return 2;
@@ -46,11 +46,11 @@ int main(int argc, char **argv) {
     /*Creating local input and output arrays of same size as number of values per processor
     with padding of length 2 on both left and right side of the array
     */
+
     double *buflocalinput = (double*)malloc((4+vals_per_pc)*sizeof(double));
     double *l_out = (double*)malloc((vals_per_pc)*sizeof(double));
     double *l_in = &buflocalinput[2];
 
-	//Distributing the inputs across the processes
     MPI_Scatter(in_out, vals_per_pc, MPI_DOUBLE, l_in, vals_per_pc, MPI_DOUBLE, 0, cart);
 
 	// Stencil values
@@ -67,8 +67,6 @@ int main(int argc, char **argv) {
 
 	// Start timer
 	double start = MPI_Wtime();
-
-	//Loop applying the stencils according to number of steps defined
 	for(int k = 0; k< num_steps; k++){
 
 		//Setting up request handles
@@ -79,8 +77,9 @@ int main(int argc, char **argv) {
 		MPI_Isend(&l_in[0],1,edge,west,west,cart,&w_send_req);	
 		MPI_Irecv(&buflocalinput[0],1,edge,west,rank,cart,&w_rec_req);
 		MPI_Irecv(&buflocalinput[vals_per_pc+EXTENT],1,edge,east,rank,cart,&e_rec_req);
-		
+
 		//Performing the stencil on the elements in the middle first
+
 		for(int i = EXTENT; i<vals_per_pc-EXTENT; i++){
 			double result = 0;
 			for(int j = 0; j<STENCIL_WIDTH;j++){
@@ -112,10 +111,10 @@ int main(int argc, char **argv) {
 			l_out[i] = result;
 		}
 
-	//Copying output to input so the stencil can be applied again in the next step
-		for(int i = 0; i<vals_per_pc; i++){
-			l_in[i] = l_out[i];
-		}
+	for(int i = 0; i<vals_per_pc; i++){
+		l_in[i] = l_out[i];
+	}
+
 	}
 
 	// Stop timer
@@ -145,6 +144,7 @@ int main(int argc, char **argv) {
 		free(in_out);
 		free(timing);
 		}
+    
 	//End of program
 	MPI_Type_free(&edge);
 	MPI_Comm_free(&cart);
