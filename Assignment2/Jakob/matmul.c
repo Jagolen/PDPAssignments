@@ -13,6 +13,8 @@ int main(int argc, char **argv){
     double *timing;
     int rank, size;
     int north, south, east, west;
+    const int *period = {1, 1};
+    const int *size_per_dim, *position;
 
     MPI_Init(&argc, &argv);
     
