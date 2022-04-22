@@ -127,18 +127,23 @@ int read_input(const char *file_name, int ***A, int ***B) {
     printf("After Mallocs\n");
 	for (int i=0; i<matrix_size; i++) {
         for (int j=0; j<matrix_size; j++)
-		if (EOF == fscanf(file, "%d", &((*A)[i][j]))) {
-			perror("Couldn't read elements from input file");
-			return -1;
-		}
+        {
+            printf("[%d, %d]\n",i,j);
+            if (EOF == fscanf(file, "%d", &((*A)[i][j]))) {
+                perror("Couldn't read elements from input file");
+                return -1;
+            }
+        }
 	}
 
     for (int i=0; i<matrix_size; i++) {
         for (int j=0; j<matrix_size; j++)
-		if (EOF == fscanf(file, "%d", &((*B)[i][j]))) {
-			perror("Couldn't read elements from input file");
-			return -1;
-		}
+        {
+            if (EOF == fscanf(file, "%d", &((*B)[i][j]))) {
+                perror("Couldn't read elements from input file");
+                return -1;
+            }
+        }
 	}
 	if (0 != fclose(file)){
 		perror("Warning: couldn't close input file");
