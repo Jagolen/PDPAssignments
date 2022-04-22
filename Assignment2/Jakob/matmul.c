@@ -98,24 +98,28 @@ int read_input(const char *file_name, int ***A, int ***B) {
 		perror("Couldn't read matrix size from input file");
 		return -1;
 	}
-    printf("HERE\n");
-	if (NULL == (**A = malloc(matrix_size * sizeof(int*)))) {
+    printf("After matrix size: size = %d\n", matrix_size);
+
+
+	if (NULL == (*A = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix A");
 		return -1;
 	}
+    printf("Bla\n");
     for(int i = 0; i<matrix_size; i++){
-        if (NULL == (*A[i] = malloc(matrix_size * sizeof(int)))) {
+        printf("i = %d\n",i);
+        if (NULL == (A[i] = malloc(matrix_size * sizeof(int)))) {
             perror("Couldn't allocate memory for matrix A");
             return -1;
         }
 	}
-
-	if (NULL == (**B = malloc(matrix_size * sizeof(int*)))) {
+    printf("After A\n");
+	if (NULL == (*B = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix B");
 		return -1;
 	}
     for(int i = 0; i<matrix_size; i++){
-        if (NULL == (*B[i] = malloc(matrix_size * sizeof(int)))) {
+        if (NULL == (B[i] = malloc(matrix_size * sizeof(int)))) {
             perror("Couldn't allocate memory for matrix B");
             return -1;
 	    }
