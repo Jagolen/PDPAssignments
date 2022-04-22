@@ -67,11 +67,13 @@ int main(int argc, char **argv){
     int local_matrix_size = matrix_size/size_per_dim[0];
     localA = malloc(local_matrix_size * local_matrix_size * sizeof(int));
     localB = malloc(local_matrix_size * local_matrix_size * sizeof(int));
-    printf("hihi\n");
 
 
-
-
+    //Creating a vector datatype to handle the local matrices
+    MPI_Datatype temp, local;
+    MPI_Type_vector(local_matrix_size, local_matrix_size, matrix_size, MPI_INT, &temp);
+    MPI_Type_create_resized(temp, 0, sizeof(int), &local);
+    MPI_Type_commit(&local);
 
 /*     printf("My rank is %d and my coords are (%d, %d). \
 Neighbors: North: %d, South: %d, East: %d, West: %d\n",
