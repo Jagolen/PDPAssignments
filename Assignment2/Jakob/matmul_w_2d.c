@@ -15,7 +15,7 @@ int main(int argc, char **argv){
     int north, south, east, west, matrix_size;
     int period[2] = {1, 1};
     int size_per_dim[2], position[2];
-    int *A, *B, *C, *localA, *localB, *localC;
+    int **A, **B, **C, **localA, **localB, **localC;
 
     //Initializing MPI and get the number of processing elements
     MPI_Init(&argc, &argv);
@@ -46,7 +46,7 @@ int main(int argc, char **argv){
         printf("Matrix A: \n");
         for(int i = 0; i< matrix_size; i++){
             for(int j = 0; j<matrix_size; j++){
-                printf("%d ", A[i*matrix_size+j]);
+                printf("%d ", A[i][j]);
             }
             printf("\n");
         }
@@ -54,7 +54,7 @@ int main(int argc, char **argv){
         printf("Matrix B: \n");
         for(int i = 0; i< matrix_size; i++){
             for(int j = 0; j<matrix_size; j++){
-                printf("%d ", B[i*matrix_size+j]);
+                printf("%d ", B[i][j]);
             }
             printf("\n");
         }
@@ -65,9 +65,21 @@ int main(int argc, char **argv){
 
     //Getting the local matrix size and allocating it
     int local_matrix_size = matrix_size/size_per_dim[0];
-    localA = malloc(local_matrix_size * local_matrix_size * sizeof(int));
-    localB = malloc(local_matrix_size * local_matrix_size * sizeof(int));
+    localA = malloc(local_matrix_size * sizeof(int*));
+    localB = malloc(local_matrix_size * sizeof(int*));
+    for(int i = 0; i<local_matrix_size; i++){
+        localA[i] = malloc(local_matrix_size * sizeof(int));
+        localB[i] = malloc(local_matrix_size * sizeof(int));
+    }
     printf("hihi\n");
+
+    //Creating a datatype to relate the local arrays to the full array.
+    MPI_Datatype fulltype, localtype;
+    int local_size_per_dim[2] = {local_matrix_size, local_matrix_size};
+    int start_at[2] = {0, 0};
+    MPI_Type_create_subarray(2, size_per_dim, local_size_per_dim, start_at, MPI_ORDER_C, MPI_INT, &fulltype);
+    MPI_Type_create_resized(fulltype, 0, local_matrix_size*sizeof(int), &localtype);
+    MPI_Type_commit(&localtype);
 
 
 
@@ -89,7 +101,7 @@ Neighbors: North: %d, South: %d, East: %d, West: %d\n",
 }
 
 
-int read_input(const char *file_name, int **A, int **B) {
+int read_input(const char *file_name, int ***A, int ***B) {
 	FILE *file;
 	if (NULL == (file = fopen(file_name, "r"))) {
 		perror("Couldn't open input file");
@@ -103,23 +115,35 @@ int read_input(const char *file_name, int **A, int **B) {
     printf("After matrix size: size = %d\n", matrix_size);
 
 
-	if (NULL == (*A = malloc(matrix_size * matrix_size * sizeof(int)))) {
+	if (NULL == (*A = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix A");
 		return -1;
 	}
-
+    printf("Bla\n");
+    for(int i = 0; i<matrix_size; i++){
+        printf("i = %d\n",i);
+        if (NULL == ((*A)[i] = malloc(matrix_size * sizeof(int)))) {
+            perror("Couldn't allocate memory for matrix A");
+            return -1;
+        }
+	}
     printf("After A\n");
-	if (NULL == (*B = malloc(matrix_size * matrix_size * sizeof(int)))) {
+	if (NULL == (*B = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix B");
 		return -1;
 	}
-
+    for(int i = 0; i<matrix_size; i++){
+        if (NULL == ((*B)[i] = malloc(matrix_size * sizeof(int)))) {
+            perror("Couldn't allocate memory for matrix B");
+            return -1;
+	    }
+    }
     printf("After Mallocs\n");
 	for (int i=0; i<matrix_size; i++) {
         for (int j=0; j<matrix_size; j++)
         {
             printf("[%d, %d]\n",i,j);
-            if (EOF == fscanf(file, "%d", &((*A)[i*matrix_size + j]))) {
+            if (EOF == fscanf(file, "%d", &((*A)[i][j]))) {
                 perror("Couldn't read elements from input file");
                 return -1;
             }
@@ -129,7 +153,7 @@ int read_input(const char *file_name, int **A, int **B) {
     for (int i=0; i<matrix_size; i++) {
         for (int j=0; j<matrix_size; j++)
         {
-            if (EOF == fscanf(file, "%d", &((*B)[i*matrix_size + j]))) {
+            if (EOF == fscanf(file, "%d", &((*B)[i][j]))) {
                 perror("Couldn't read elements from input file");
                 return -1;
             }
