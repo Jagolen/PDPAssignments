@@ -28,6 +28,17 @@ int main(int argc, char **argv){
     size_per_dim[1] = (int)sqrt(size);
     MPI_Cart_create(MPI_COMM_WORLD, 2, size_per_dim, period, 1, &cart);
 
+    //Get rank and coordinates
+    MPI_Comm_rank(cart, &rank);
+    MPI_Cart_coords(cart, rank, 2, position);
+
+    //Find the neighbors
+    MPI_Cart_shift(cart, 0, 1, &west, &east);
+    MPI_Cart_shift(cart, 1, 1, &north, &south);
+
+    printf("My rank is %d and my coords are (%d, %d). \
+Neighbors: North: %d, South: %d, East: %d, West: %d\n",
+        rank, position[0], position[1],north, south,east,west);
 
 
     MPI_Finalize();
