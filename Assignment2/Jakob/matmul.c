@@ -12,9 +12,10 @@ int main(int argc, char **argv){
 	char *output_name = argv[2];
     double *timing;
     int rank, size;
-    int north, south, east, west;
+    int north, south, east, west, matrix_size;
     int period[2] = {1, 1};
     int size_per_dim[2], position[2];
+    double **A, **B, **C, **localA, **localB, **localC;
 
     //Initializing MPI and get the number of processing elements
     MPI_Init(&argc, &argv);
@@ -36,12 +37,79 @@ int main(int argc, char **argv){
     MPI_Cart_shift(cart, 0, 1, &west, &east);
     MPI_Cart_shift(cart, 1, 1, &north, &south);
 
-    printf("My rank is %d and my coords are (%d, %d). \
+    //Process 0 reads the input file
+    if(rank == 0){
+        	if (0 > (matrix_size = read_input(input_name, &A, &B))) {
+		        return 2;
+	    }
+		timing = (double*)malloc(size*sizeof(double));
+    }
+    
+    
+    //MPI_Bcast(&num_values, 1, MPI_INT, 0, cart);
+
+
+
+
+
+
+
+/*     printf("My rank is %d and my coords are (%d, %d). \
 Neighbors: North: %d, South: %d, East: %d, West: %d\n",
         rank, position[0], position[1],north, south,east,west);
-
+    int testvector[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int local[4];
+    MPI_Scatter(testvector, 4, MPI_INT, local, 4, MPI_INT, 0, cart);
+    printf("Process %d got local values [%d %d %d %d]\n",rank,local[0], 
+        local[1], local[2], local[3]); */
+    
 
     MPI_Finalize();
 
     return 0;
+}
+
+
+int read_input(const char *file_name, int ***A, int ***B) {
+	FILE *file;
+	if (NULL == (file = fopen(file_name, "r"))) {
+		perror("Couldn't open input file");
+		return -1;
+	}
+	int matrix_size;
+	if (EOF == fscanf(file, "%d", &matrix_size)) {
+		perror("Couldn't read matrix size from input file");
+		return -1;
+	}
+	if (NULL == (**A = malloc(matrix_size * sizeof(int)))) {
+		perror("Couldn't allocate memory for matrix A");
+		return -1;
+	}
+    for(int i = 0; i<matrix_size; i++){
+        if (NULL == (*A[i] = malloc(matrix_size * sizeof(int)))) {
+            perror("Couldn't allocate memory for matrix A");
+            return -1;
+	}
+
+	if (NULL == (**B = malloc(matrix_size * sizeof(int)))) {
+		perror("Couldn't allocate memory for matrix B");
+		return -1;
+	}
+    for(int i = 0; i<matrix_size; i++){
+        if (NULL == (*B[i] = malloc(matrix_size * sizeof(int)))) {
+            perror("Couldn't allocate memory for matrix B");
+            return -1;
+	    }
+    }
+
+	for (int i=0; i<matrix_size; i++) {
+		if (EOF == fscanf(file, "%lf", &((*A)[i]))) {
+			perror("Couldn't read elements from input file");
+			return -1;
+		}
+	}
+	if (0 != fclose(file)){
+		perror("Warning: couldn't close input file");
+	}
+	return matrix_size;
 }
