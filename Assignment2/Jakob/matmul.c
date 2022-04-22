@@ -13,14 +13,19 @@ int main(int argc, char **argv){
     double *timing;
     int rank, size;
     int north, south, east, west;
-    const int *period = {1, 1};
-    const int *size_per_dim, *position;
+    int *period = {1, 1};
+    int *size_per_dim[2], *position[2];
 
+    //Initializing MPI and get the number of processing elements
     MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
     
     
-    //Creating a cartesian topology and get the ranks
+    /*Creating a cartesian topology and get the ranks a 2d square topology is assumed
+    so processes per dimension is just sqrt(size)*/
     MPI_Comm cart;
+    size_per_dim[0] = sqrt(size);
+    size_per_dim[1] = sqrt(size);
 
 
     MPI_Finalize();
