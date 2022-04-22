@@ -15,7 +15,7 @@ int main(int argc, char **argv){
     int north, south, east, west, matrix_size;
     int period[2] = {1, 1};
     int size_per_dim[2], position[2];
-    double **A, **B, **C, **localA, **localB, **localC;
+    int **A, **B, **C, **localA, **localB, **localC;
 
     //Initializing MPI and get the number of processing elements
     MPI_Init(&argc, &argv);
@@ -36,14 +36,31 @@ int main(int argc, char **argv){
     //Find the neighbors
     MPI_Cart_shift(cart, 0, 1, &west, &east);
     MPI_Cart_shift(cart, 1, 1, &north, &south);
-
+    printf("Hihi\n");
     //Process 0 reads the input file
     if(rank == 0){
         	if (0 > (matrix_size = read_input(input_name, &A, &B))) {
 		        return 2;
 	    }
 		timing = (double*)malloc(size*sizeof(double));
+        printf("Matrix A: \n");
+        for(int i = 0; i< matrix_size; i++){
+            for(int j = 0; j<matrix_size; j++){
+                printf("%d ", A[i][j]);
+            }
+            printf("\n");
+        }
+
+        printf("Matrix B: \n");
+        for(int i = 0; i< matrix_size; i++){
+            for(int j = 0; j<matrix_size; j++){
+                printf("%d ", B[i][j]);
+            }
+            printf("\n");
+        }
     }
+
+
     
     
     //MPI_Bcast(&num_values, 1, MPI_INT, 0, cart);
@@ -81,7 +98,8 @@ int read_input(const char *file_name, int ***A, int ***B) {
 		perror("Couldn't read matrix size from input file");
 		return -1;
 	}
-	if (NULL == (**A = malloc(matrix_size * sizeof(int)))) {
+    printf("HERE\n");
+	if (NULL == (**A = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix A");
 		return -1;
 	}
@@ -89,9 +107,10 @@ int read_input(const char *file_name, int ***A, int ***B) {
         if (NULL == (*A[i] = malloc(matrix_size * sizeof(int)))) {
             perror("Couldn't allocate memory for matrix A");
             return -1;
+        }
 	}
 
-	if (NULL == (**B = malloc(matrix_size * sizeof(int)))) {
+	if (NULL == (**B = malloc(matrix_size * sizeof(int*)))) {
 		perror("Couldn't allocate memory for matrix B");
 		return -1;
 	}
@@ -101,9 +120,18 @@ int read_input(const char *file_name, int ***A, int ***B) {
             return -1;
 	    }
     }
-
+    printf("After Mallocs\n");
 	for (int i=0; i<matrix_size; i++) {
-		if (EOF == fscanf(file, "%lf", &((*A)[i]))) {
+        for (int j=0; j<matrix_size; j++)
+		if (EOF == fscanf(file, "%d", &((*A)[i][j]))) {
+			perror("Couldn't read elements from input file");
+			return -1;
+		}
+	}
+
+    for (int i=0; i<matrix_size; i++) {
+        for (int j=0; j<matrix_size; j++)
+		if (EOF == fscanf(file, "%d", &((*B)[i][j]))) {
 			perror("Couldn't read elements from input file");
 			return -1;
 		}
