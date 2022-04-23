@@ -142,14 +142,6 @@ int main(int argc, char **argv){
     //Freeing the local matrices
     free(localA);
     free(localB);
-    free(localC);
-
-    //Lastly the output file is created
-    if(rank == 0){
-        if (0 != write_output(output_name, C, matrix_size)) {
-            return 2;
-		}
-    }
     
 
 
@@ -204,24 +196,4 @@ int read_input(const char *file_name, double **A, double **B) {
 		perror("Warning: couldn't close input file");
 	}
 	return matrix_size;
-}
-
-int write_output(const char *file_name, double *C, int matrix_size){
-	FILE *file;
-	if (NULL == (file = fopen(file_name, "w"))) {
-		perror("Couldn't open output file");
-		return -1;
-	}
-	for (int i = 0; i < matrix_size * matrix_size; i++) {
-		if (0 > fprintf(file, "%.6f ", C[i])) {
-			perror("Couldn't write to output file");
-		}
-	}
-	if (0 > fprintf(file, "\n")) {
-		perror("Couldn't write to output file");
-	}
-	if (0 != fclose(file)) {
-		perror("Warning: couldn't close output file");
-	}
-	return 0;
 }

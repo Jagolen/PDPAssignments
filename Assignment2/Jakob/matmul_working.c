@@ -43,6 +43,22 @@ int main(int argc, char **argv){
         	if (0 > (matrix_size = read_input(input_name, &A, &B))) {
 		        return 2;
 	    }
+		timing = (double*)malloc(size*sizeof(double));
+        printf("Matrix A: \n");
+        for(int i = 0; i< matrix_size; i++){
+            for(int j = 0; j<matrix_size; j++){
+                printf("%lf ", A[i*matrix_size+j]);
+            }
+            printf("\n");
+        }
+
+        printf("Matrix B: \n");
+        for(int i = 0; i< matrix_size; i++){
+            for(int j = 0; j<matrix_size; j++){
+                printf("%lf ", B[i*matrix_size+j]);
+            }
+            printf("\n");
+        }
     }
 
     //Sending matrix size to everyone
@@ -86,16 +102,37 @@ int main(int argc, char **argv){
     MPI_Cart_shift(cart, 0, position[1], &after_shift, &before_shift);
     MPI_Sendrecv_replace(localB, local_matrix_size * local_matrix_size, MPI_DOUBLE, after_shift, 1, before_shift, 1, cart, &status);
 
+
+    
+    if(rank == 6){
+        printf("Local A: \n");
+        for(int i = 0; i< local_matrix_size; i++){
+            for(int j = 0; j<local_matrix_size; j++){
+                printf("%lf ", localA[i*local_matrix_size+j]);
+            }
+            printf("\n");
+        }
+        
+        printf("Local B: \n");
+        for(int i = 0; i< local_matrix_size; i++){
+            for(int j = 0; j<local_matrix_size; j++){
+                printf("%lf ", localB[i*local_matrix_size+j]);
+            }
+            printf("\n");
+        }
+    }
+
+
+
+
+
+
     //Allocating local result matrix localC and initializing it to zero
     localC = malloc(local_matrix_size * local_matrix_size * sizeof(double));
     for(int i = 0; i<(local_matrix_size*local_matrix_size); i++){
         localC[i] = 0;
     }
     
-
-    //Start the timer
-    double start = MPI_Wtime();
-
     //Next, the Cannon algorithm is implemented.
     for(int p = 0; p<size_per_dim[0]; p++){
         //First the standard matrix multiplication is performed on the local matrices
@@ -112,23 +149,16 @@ int main(int argc, char **argv){
         MPI_Sendrecv_replace(localB, local_matrix_size*local_matrix_size, MPI_DOUBLE, north, 1, south, 1, cart, &status);
     }
 
-    //Stop the timer
-	double my_execution_time = MPI_Wtime() - start;
 
-    //Allocating the execution time and collecting all the times in an array
-    if(rank == 0){
-        timing = (double*)malloc(size*sizeof(double));
-    } 
-    MPI_Gather(&my_execution_time, 1, MPI_DOUBLE, timing, 1, MPI_DOUBLE, 0, cart);
-    
-    //Print the highest execution time
-    if(rank == 0){
-		double max_time = timing[0];
-		for(int i = 1; i<size; i++){
-			if(max_time < timing[i]) max_time = timing[i];
-		}
-		printf("%f\n", max_time);
-	}
+
+    printf("My rank is %d and my coords are (%d, %d). \
+Neighbors: North: %d, South: %d, East: %d, West: %d\n",
+        rank, position[0], position[1],north, south,east,west);
+
+
+
+
+
 
 
     //Allocating the final matrix C
@@ -142,13 +172,16 @@ int main(int argc, char **argv){
     //Freeing the local matrices
     free(localA);
     free(localB);
-    free(localC);
 
-    //Lastly the output file is created
+
     if(rank == 0){
-        if (0 != write_output(output_name, C, matrix_size)) {
-            return 2;
-		}
+        printf("Matrix C: \n");
+        for(int i = 0; i< matrix_size; i++){
+            for(int j = 0; j<matrix_size; j++){
+                printf("%lf ", C[i*matrix_size+j]);
+            }
+            printf("\n");
+        }
     }
     
 
@@ -169,6 +202,7 @@ int read_input(const char *file_name, double **A, double **B) {
 		perror("Couldn't read matrix size from input file");
 		return -1;
 	}
+    printf("After matrix size: size = %d\n", matrix_size);
 
 
 	if (NULL == (*A = malloc(matrix_size * matrix_size * sizeof(double)))) {
@@ -176,11 +210,13 @@ int read_input(const char *file_name, double **A, double **B) {
 		return -1;
 	}
 
+    printf("After A\n");
 	if (NULL == (*B = malloc(matrix_size * matrix_size * sizeof(double)))) {
 		perror("Couldn't allocate memory for matrix B");
 		return -1;
 	}
 
+    printf("After Mallocs\n");
 	for (int i=0; i<matrix_size; i++) {
         for (int j=0; j<matrix_size; j++)
         {
@@ -204,24 +240,4 @@ int read_input(const char *file_name, double **A, double **B) {
 		perror("Warning: couldn't close input file");
 	}
 	return matrix_size;
-}
-
-int write_output(const char *file_name, double *C, int matrix_size){
-	FILE *file;
-	if (NULL == (file = fopen(file_name, "w"))) {
-		perror("Couldn't open output file");
-		return -1;
-	}
-	for (int i = 0; i < matrix_size * matrix_size; i++) {
-		if (0 > fprintf(file, "%.6f ", C[i])) {
-			perror("Couldn't write to output file");
-		}
-	}
-	if (0 > fprintf(file, "\n")) {
-		perror("Couldn't write to output file");
-	}
-	if (0 != fclose(file)) {
-		perror("Warning: couldn't close output file");
-	}
-	return 0;
 }

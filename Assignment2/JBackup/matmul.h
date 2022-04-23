@@ -5,4 +5,4 @@
 
 int read_input(const char *file_name, double **A, double **B);
 
-int write_output(const char *file_name, double *C, int matrix_size);
+int write_output(char *file_name, const double *output, int num_values);
