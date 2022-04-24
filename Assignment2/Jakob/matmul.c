@@ -156,8 +156,8 @@ int main(int argc, char **argv){
         free(timing);
         free(C);
     }
-    MPI_Type_free(local);
-    MPI_Comm_free(cart);
+    MPI_Type_free(&local);
+    MPI_Comm_free(&cart);
     MPI_Finalize();
     return 0;
 }
