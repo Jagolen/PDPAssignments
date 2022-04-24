@@ -60,19 +60,19 @@ int main(int argc, char **argv){
     MPI_Type_create_resized(temp, 0, sizeof(double), &local);
     MPI_Type_commit(&local);
 
-    //Defining the count and the displacement
-    int disps[size_per_dim[0] * size_per_dim[0]];
-    int counts[size_per_dim[0] * size_per_dim[0]];
+    //Defining the number of vectors to be sent (1 for every core) and the displacement which is different for each core
+    int displacement[size_per_dim[0] * size_per_dim[0]];
+    int nr_of_vectors[size_per_dim[0] * size_per_dim[0]];
     for(int i =0; i<size_per_dim[0]; i++){
         for(int j = 0; j<size_per_dim[0]; j++){
-            disps[i*size_per_dim[0]+j] = i*matrix_size*local_matrix_size+j*local_matrix_size;
-            counts[i*size_per_dim[0]+j] = 1;
+            displacement[i*size_per_dim[0]+j] = i*matrix_size*local_matrix_size+j*local_matrix_size;
+            nr_of_vectors[i*size_per_dim[0]+j] = 1;
         }
     }
 
     //Scattering A and B into local block matrices
-    MPI_Scatterv(A, counts, disps, local, localA, local_matrix_size*local_matrix_size, MPI_DOUBLE, 0, cart);
-    MPI_Scatterv(B, counts, disps, local, localB, local_matrix_size*local_matrix_size, MPI_DOUBLE, 0, cart);
+    MPI_Scatterv(A, nr_of_vectors, displacement, local, localA, local_matrix_size*local_matrix_size, MPI_DOUBLE, 0, cart);
+    MPI_Scatterv(B, nr_of_vectors, displacement, local, localB, local_matrix_size*local_matrix_size, MPI_DOUBLE, 0, cart);
     
     //Freeing A and B
     if(rank == 0){
@@ -137,7 +137,7 @@ int main(int argc, char **argv){
     }
 
     //Gathering the submatrices into C
-    MPI_Gatherv(localC, local_matrix_size * local_matrix_size, MPI_DOUBLE, C, counts, disps, local, 0, cart);
+    MPI_Gatherv(localC, local_matrix_size * local_matrix_size, MPI_DOUBLE, C, nr_of_vectors, displacement, local, 0, cart);
 
     //Freeing the local matrices
     free(localA);
