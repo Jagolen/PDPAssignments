@@ -151,8 +151,13 @@ int main(int argc, char **argv){
 		}
     }
     
-
-
+    //Free memory and end program
+    if(rank == 0){
+        free(timing);
+        free(C);
+    }
+    MPI_Type_free(local);
+    MPI_Comm_free(cart);
     MPI_Finalize();
     return 0;
 }
