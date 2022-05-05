@@ -11,6 +11,7 @@ int main(int argc, char **argv){
     int rank, size, list_size;
     int *values;
 
+    /* reading input where values is the list and list_size is the list size */
     if(rank == 0){
         if (0 > (list_size = read_input(input_name, &values))) return 2;
 		timing = (double*)malloc(size*sizeof(double));
@@ -59,14 +60,14 @@ int read_input(const char *file_name, int **values) {
 	return num_values;
 }
 
-int write_output(char *file_name, const double *output, int num_values) {
+int write_output(const char *file_name, int *output, int num_values) {
 	FILE *file;
 	if (NULL == (file = fopen(file_name, "w"))) {
 		perror("Couldn't open output file");
 		return -1;
 	}
 	for (int i = 0; i < num_values; i++) {
-		if (0 > fprintf(file, "%.4f ", output[i])) {
+		if (0 > fprintf(file, "%d ", output[i])) {
 			perror("Couldn't write to output file");
 		}
 	}
