@@ -6,11 +6,11 @@ CC = mpicc
 CFLAGS = -std=c99 -g -O3
 LIBS = -lm
 
-BIN = matmul
+BIN = qsort
 
 all: $(BIN)
 
-matmul: qsort.c qsort.h
+qsort: qsort.c qsort.h
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 	
 clean:
