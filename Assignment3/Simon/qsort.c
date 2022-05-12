@@ -24,12 +24,30 @@ int main(int argc, char **argv){
     MPI_Status status;
     MPI_Comm hyperCube;
     int nDim = (int)log2(size);
-    printf("Dimentions = %d\n",nDim);
     int local_sizes[nDim], position[nDim], period[nDim];
     for(int i=0;i<nDim;i++) {
         local_sizes[i]=2;
         period[i]=1;
     }
+
+	/* typing out the function of current pivot */
+	if(rank==0){
+	if(pivot==1)
+		printf("Pivot 1: Select the median in one processor in each \
+group of processors.\n");
+	else if(pivot==2)
+		printf("pivot 2: Select the median of all medians in each \
+processor group.\n");
+	else if(pivot==3)
+		printf("pivot 3: Select the mean value of all medians in each \
+processor group.\n");
+	else{
+		printf("not a valid pivot. must be 1, 2 or 3\n");
+		return 2;
+	}
+	printf("Dimentions = %d\n",nDim);
+	}
+
     MPI_Cart_create(MPI_COMM_WORLD, nDim, local_sizes, period, 1, &hyperCube);
     int my_coords[nDim];
     MPI_Cart_coords(hyperCube, rank, nDim, my_coords);
@@ -44,16 +62,16 @@ int main(int argc, char **argv){
 		processors */
 		if(extras!=0){
 			list_size += extras;
-			printf("---- OBS NOT DIVIDABLE BY %d --- extras=%d\n",
-				size, extras);
-			printf("placing %d zeores at end\n",extras);
+			printf("input list size %d is not evenly distrubuted over %d cores\
+must add %d extra zeroes\n", list_size, size, extras);
+			printf("placing %d zeores at end\n\n",extras);
 			values = realloc(values, (list_size)*sizeof(int));
 			for(int i=1;i<=extras;i++)	values[list_size-i]=0;
 		}
 		timing = (double*)malloc(size*sizeof(double));
 
 		/* Pringting the input */
-        printf("list size = %d\nfirst 32 elements in list: ",list_size);
+        printf("first 32 elements in list: ");
         for(int i=0;i<32;i++){
             printf("%d ",values[i]);
         }   printf("\n");
@@ -62,7 +80,7 @@ int main(int argc, char **argv){
         qsort(values, list_size, sizeof(int), cmpfunc);
 
         /* printing the 32 first output values */
-        printf("list size = %d\nfirst 32 elements in sorted list: ",list_size);
+        printf("first 32 elements in test sorted list: ");
         for(int i=0;i<list_size;i++){
             printf("%d ",values[i]);
         }   printf("\n--------\n\n");
