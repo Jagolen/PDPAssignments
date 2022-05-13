@@ -58,29 +58,11 @@ processor group.\n");
         if (0 > (list_size = read_input(input_name, &values))) return 2;
 		extras = list_size%size;
 
-		/* inserting zeroes to make the sort evenly divisable by 
-		processors */
-		if(extras!=0){
-			list_size += extras;
-			printf("input list size %d is not evenly distrubuted over %d cores\
-must add %d extra zeroes\n", list_size, size, extras);
-			printf("placing %d zeores at end\n\n",extras);
-			values = realloc(values, (list_size)*sizeof(int));
-			for(int i=1;i<=extras;i++)	values[list_size-i]=0;
-		}
-		timing = (double*)malloc(size*sizeof(double));
-
-		/* Pringting the input */
-        printf("first 32 elements in list: ");
-        for(int i=0;i<32;i++){
-            printf("%d ",values[i]);
-        }   printf("\n");
-
 		/* local sort test */
         qsort(values, list_size, sizeof(int), cmpfunc);
 
         /* printing the 32 first output values */
-        printf("first 32 elements in test sorted list: ");
+        printf("first 30 elements in test sorted list: ");
         for(int i=0;i<list_size;i++){
             printf("%d ",values[i]);
         }   printf("\n--------\n\n");
@@ -93,16 +75,23 @@ must add %d extra zeroes\n", list_size, size, extras);
     //Defining the number of vectors to be sent (1 for every core) and the displacement which is different for each core
     int displacement[size];
 	int count_send[size];
-    for(int i =0; i<size; i++){
+	/* custom dsplacements and counts to each process */
+	count_send[0]=local_size+extras;
+	count_send[1] = local_size;
+	displacement[0] = 0;
+	displacement[1] = local_size+extras;
+    for(int i =2; i<size; i++){
         displacement[i] = i*local_size;
 		count_send[i] = local_size;
     }
 
     //Scattering A and B into local block matrices
 	printf("Scattering local_values..\n");
-	local_values = (int*)malloc(local_size*sizeof(int));
+	if(rank!=0)
+		local_values = (int*)malloc(local_size*sizeof(int));
+	else local_values = (int*)malloc((local_size+extras)*sizeof(int));
     MPI_Scatterv(values, count_send, displacement, MPI_INT, local_values, 
-		local_size, MPI_INT, 0, hyperCube);
+		count_send[rank], MPI_INT, 0, hyperCube);
 	printf("..Scattering done\n\n");
 
 	if(rank==1){
@@ -116,13 +105,7 @@ must add %d extra zeroes\n", list_size, size, extras);
 
 
     /* writing the output */
-    int output_status = 1; // 1 if active output. 0 inactive
-	printf("new pointer skipp %d first values\n",extras);
-	if(extras!=0){
-		int *out = (&values)[extras];
-		printf("after removeing first values\n");
-	}
-	
+    int output_status = 0; // 1 if active output. 0 inactive	
     if(rank == 0 && output_status==1){
 		if (0 != write_output(output_name, values, list_size)) {
 			return 2;
