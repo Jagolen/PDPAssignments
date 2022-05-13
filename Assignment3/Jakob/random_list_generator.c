@@ -29,7 +29,7 @@ int main(int argc, char **argv){
         return 1;
     }
     int *vector = (int *)malloc((N+1)*sizeof(int));
-    for(int i=1;i<=N;i++) vector[i]=rand()%100;
+    for(int i=1;i<=N;i++) vector[i]=rand()%100 - 50;
     vector[0]=N;
     write_output(output_name, vector, N);
     return 0;

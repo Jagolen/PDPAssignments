@@ -102,9 +102,12 @@ int main(int argc, char **argv){
 		//If we use method 2 or 3 we have to create a list of all medians
 		else{
 			int medians[sub_size];
+
+			//All medians are gathered in a list
 			MPI_Gather(&median, 1, MPI_INT, medians, 1, MPI_INT, 0, hyper_sub);
 			if(method == 2){
 				if(sub_rank == 0){
+					// For method 2 we sort the array of medians and pick the median of that
 					qsort(medians, sub_size, sizeof(int), cmpfunc);
 					chosen_median = medians[sub_size/2];
 					MPI_Bcast(&chosen_median, 1, MPI_INT, 0, hyper_sub);
@@ -113,6 +116,7 @@ int main(int argc, char **argv){
 			}
 			else if(method == 3){
 				if(sub_rank == 0){
+					//For method 3 we take the mean value of the medians, no sorting required
 					double temp_median = 0;
 					for(int i = 0; i<sub_size; i++){
 						temp_median += (medians[i]/(double)sub_size);
@@ -123,6 +127,8 @@ int main(int argc, char **argv){
 					printf("Chosen median = %d\n", chosen_median);
 				}
 			}
+
+			//If an invalid method is used, just give an error and exit the program
 			else{
 				if(rank == 0){
 					printf("Invalid method\n");
@@ -130,7 +136,8 @@ int main(int argc, char **argv){
 				}
 			}
 		}
-		
+
+		//Next we find which element in the local array
 
 
 		//Free the split communicator so a new one can be used in the next iteration
