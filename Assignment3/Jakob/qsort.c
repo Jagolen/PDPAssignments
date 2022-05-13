@@ -37,16 +37,6 @@ int main(int argc, char **argv){
 	MPI_Cart_create(MPI_COMM_WORLD, dims, proc_per_dim, periodic, 1, &hyper);
 	MPI_Comm_rank(hyper, &rank);
 
-//Split test
-/* 	int color = pow(2,2)*rank/size;
-	MPI_Comm new_comm;
-	MPI_Comm_split(hyper, color, rank, &new_comm);
-	int rank2,sz;
-	MPI_Comm_rank(new_comm,&rank2);
-	MPI_Comm_size(new_comm,&sz);
-	printf("Rank = %d, New rank = %d\n",rank, rank2);
-	MPI_Status status; */
-
 	//Rank 0 reads the input list and broadcast number of elements
     if(rank == 0){
         if (0 > (list_size = read_input(input_name, &values, size, &expanded_size))) return 2;
@@ -87,14 +77,60 @@ int main(int argc, char **argv){
 		int sub_rank, sub_size;
 		int group = pow(2,iteration)*rank/size;
 		MPI_Comm_split(hyper, group, rank, &hyper_sub);
+		MPI_Status status;
 
 		//Get the size of the sub group and the new ranks
 		MPI_Comm_rank(hyper_sub, &sub_rank);
 		MPI_Comm_size(hyper_sub, &sub_size);
 
 		//We get the median for every process
-		int median = local_values[nr_local_values/2];
+		int median, chosen_median;
+		median = local_values[nr_local_values/2];
 
+		/*
+		The different methods. Method 1 uses the median from process 0, Method 2 takes
+		the median of all medians and method 3 uses the mean value of all medians.
+		*/
+		if(method == 1){
+			chosen_median = median;
+			MPI_Bcast(&chosen_median, 1, MPI_INT, 0, hyper_sub);
+			if(sub_rank == 0){
+				printf("Chosen median = %d\n", chosen_median);
+			}
+		}
+
+		//If we use method 2 or 3 we have to create a list of all medians
+		else{
+			int medians[sub_size];
+			MPI_Gather(&median, 1, MPI_INT, medians, 1, MPI_INT, 0, hyper_sub);
+			if(method == 2){
+				if(sub_rank == 0){
+					qsort(medians, sub_size, sizeof(int), cmpfunc);
+					chosen_median = medians[sub_size/2];
+					MPI_Bcast(&chosen_median, 1, MPI_INT, 0, hyper_sub);
+					printf("Chosen median = %d\n", chosen_median);
+				}
+			}
+			else if(method == 3){
+				if(sub_rank == 0){
+					double temp_median = 0;
+					for(int i = 0; i<sub_size; i++){
+						temp_median += (medians[i]/(double)sub_size);
+						printf("Median = %d ", medians[i]);
+					}
+					chosen_median = (int)temp_median;
+					MPI_Bcast(&chosen_median, 1, MPI_INT, 0, hyper_sub);
+					printf("Chosen median = %d\n", chosen_median);
+				}
+			}
+			else{
+				if(rank == 0){
+					printf("Invalid method\n");
+					exit(-1);
+				}
+			}
+		}
+		
 
 
 		//Free the split communicator so a new one can be used in the next iteration
