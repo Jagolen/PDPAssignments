@@ -66,8 +66,12 @@ int main(int argc, char **argv){
 		}
 	}
 
+	
+
 	//The extra elements are put into rank 0
 	if(rank == 0) nr_local_values += extras;
+
+	printf("%d LocalN = %d\n", rank, nr_local_values);
 
 	//Creating local lists
 	if(nr_local_values == 0) local_values = (int*)malloc(sizeof(int));
@@ -158,8 +162,8 @@ int main(int argc, char **argv){
 			else{
 				if(rank == 0){
 					printf("Invalid method\n");
-					exit(-1);
 				}
+				exit(-1);
 			}
 		}
 
@@ -174,10 +178,10 @@ int main(int argc, char **argv){
 
 		int partner = (sub_rank + (sub_size/2))%sub_size;
 		printf("Partner of %d is %d\n", rank, partner);
-		int sendcount, recievecount, mergealloc;
+		int sendcount, recievecount, nr_merge_elements, mergealloc;
 
 		//The lower half
-		if(rank < (sub_size/2)){
+		if(sub_rank < (sub_size/2)){
 			/*
 			The lower half sends the elements above the pivot, the partner sends how many elements
 			the current process will get and the current process sends how many the partner will get.
@@ -188,7 +192,8 @@ int main(int argc, char **argv){
 			//Reallocates as much memory as needed in the recieve and merge arrays
 			if(recievecount == 0) recieve_array = (int*)realloc(recieve_array, sizeof(int));
 			else recieve_array = (int*)realloc(recieve_array, recievecount*sizeof(int));
-			mergealloc = (pivot_element+recievecount)*sizeof(int);
+			nr_merge_elements = pivot_element+recievecount;
+			mergealloc = nr_merge_elements*sizeof(int);
 			if(mergealloc == 0) merge_array = (int*)realloc(merge_array, sizeof(int));
 			else merge_array = (int*)realloc(merge_array, mergealloc);
 
@@ -211,7 +216,8 @@ int main(int argc, char **argv){
 			//Again memory for the arrays are reallocated
 			if(recievecount == 0) recieve_array = (int*)realloc(recieve_array, sizeof(int));
 			else recieve_array = (int*)realloc(recieve_array, recievecount*sizeof(int));
-			mergealloc = (nr_local_values-pivot_element+recievecount)*sizeof(int);
+			nr_merge_elements = nr_local_values-pivot_element+recievecount;
+			mergealloc = nr_merge_elements*sizeof(int);
 			if(mergealloc == 0) merge_array = (int*)realloc(merge_array, sizeof(int));
 			else merge_array = (int*)realloc(merge_array, mergealloc);
 
@@ -221,7 +227,7 @@ int main(int argc, char **argv){
 		}
 
 		//Now the local values are merged with the recieved values and sorted
-
+	
 		//Initializing parameters
 		int val, val_max;
 		int rec = 0;
@@ -280,7 +286,12 @@ int main(int argc, char **argv){
 		else local_values = (int*)realloc(local_values,mergealloc);
 
 		//The new number of elements in the local array is mergealloc
-		nr_local_values = mergealloc;
+		nr_local_values = nr_merge_elements;
+
+		for(int i = 0; i < nr_local_values; i++){
+			local_values[i] = merge_array[i];
+		}
+		printf("%d NEW N = %d\n", rank, nr_local_values);
 		//Free the split communicator so a new one can be used in the next iteration
 		MPI_Comm_free(&hyper_sub);
 	}
