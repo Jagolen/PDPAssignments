@@ -15,8 +15,9 @@ int main(int argc, char **argv){
     const char *output_name;
     if(argc == 3){output_name=argv[2]; output_status=1;}
     const double T = 100;
-    double a0, u1, u2, dt, less, more, t, start_time;
-    double *w;
+    double a0, u1, u2, dt, less, more, t, start_time, 
+        start_rank_time, rank_time;
+    double *w, *rank_times;
     double times[8];
 
 
@@ -29,11 +30,11 @@ int main(int argc, char **argv){
     }
     MPI_Comm_rank(MPI_COMM_WORLD , &rank);
     MPI_Win win;
+    MPI_Win time_win;
 
     /* setting local size and broadcasting it to all processors */
     if(rank==0){
         n = N/size;
-        printf("local experiments = %d\n",n);
     }
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -42,41 +43,55 @@ int main(int argc, char **argv){
 
     /* allocating and creating windows */
     if(rank==0){
+        /* Window for gathering histogram result data */
         MPI_Alloc_mem(N*sizeof(int), MPI_INFO_NULL, &results);
         MPI_Win_create(results , N*sizeof(int), sizeof(int),
             MPI_INFO_NULL , MPI_COMM_WORLD , &win);
+        
+        /* window for gathering total rank times */
+        MPI_Alloc_mem(size*sizeof(double), MPI_INFO_NULL, &rank_times);
+        MPI_Win_create(rank_times, size*sizeof(double), sizeof(double),
+            MPI_INFO_NULL, MPI_COMM_WORLD, &time_win);
     }
     else{
         MPI_Win_create(NULL, 0, sizeof(int),
             MPI_INFO_NULL, MPI_COMM_WORLD, &win);
+        MPI_Win_create(NULL, 0, sizeof(double),
+            MPI_INFO_NULL, MPI_COMM_WORLD, &time_win);
     }
     P_vals = (int*)malloc(15*7*sizeof(int));   //allocating P-matrix
     P_matrix(P_vals); // Setting values of P matrix
     w = (double *)malloc(15*sizeof(double));
     x = (int*)malloc(7*sizeof(int));
-    MPI_Win_fence(MPI_MODE_NOPRECEDE, win);
 
-    printf("n=%d",n);
-    for(int i=0;i<4;i++) times[i]=0;  // timing values to 0;
+    /* fences to allow the windows to be accessed */
+    MPI_Win_fence(MPI_MODE_NOPRECEDE, win);
+    MPI_Win_fence(MPI_MODE_NOPRECEDE, time_win);
+
+    for(i=0;i<4;i++) times[i]=0;  // timing values to 0;
+
+
+    start_rank_time = MPI_Wtime();
+    /* Main loop n local iterations over time T with random time steps */
     for(int iter=0;iter<n;iter++){
         t=0;
-        for(int i=0;i<7;i++) x[i]=xx[i]; // x to x0
-        for(int i=4;i<8;i++) times[i]=0;    // time has not been uppdated
+        for(i=0;i<7;i++) x[i]=xx[i]; // x to x0
+        for(i=4;i<8;i++) times[i]=0;    // time has not been uppdated
         start_time = MPI_Wtime();
         while(t<T){
             prop(x, w);
             a0=0;
-            for(int i=0;i<15;i++) a0 += w[i];
+            for(i=0;i<15;i++) a0 += w[i];
             u1 = (double)rand()/RAND_MAX;
             u2 = (double)rand()/RAND_MAX;
             dt = -log(u1)/a0;
-            less = 0;
-            more = 0;
+            more = less = 0;
             r = 0;
-
-            while(more<=a0*u2){
-                if(r>0) less+=w[r-1];
+            
+            /*  finding w(i) sums between a0*u2 */
+            while(!(less<a0*u2 && more>=a0*u2)){
                 more+=w[r];
+                if(r>0) less+=w[r-1];
                 if(r>14){
                     printf("stuck in local while\n");
                     return 1;
@@ -84,48 +99,67 @@ int main(int argc, char **argv){
                 r++;
             }
             /* update x vector */
-            for(int i=0;i<7;i++){
+            for(i=0;i<7;i++){
                 x[i] += P_vals[(r-1)*7+i];
             }
             t+=dt; //Update time
             /* getting mean time after time variable 25, 50, 75 and 100. */
-            if(t>25 && times[4]==0){
-                times[0]+=(start_time-MPI_Wtime())/n;
-                times[4]=1;
+            if(times[4]==0 && t>25){    //time is over 25 and not been updated
+                times[0]+=(MPI_Wtime()-start_time)/n;   //time is set
+                times[4]=1; // time for 25 has been updated
             }
             else if(t>50 && times[5]==0){
-                times[1]+=(start_time-MPI_Wtime())/n;
+                times[1]+=(MPI_Wtime()-start_time)/n;
                 times[5]=1;
             }
             else if(t>75 && times[6]==0){
-                times[2]+=(start_time-MPI_Wtime())/n;
+                times[2]+=(MPI_Wtime()-start_time)/n;
                 times[6]=1;
             }
             else if(t>75 && times[7]==0){
-                times[3]+=(start_time-MPI_Wtime())/n;
+                times[3]+=(MPI_Wtime()-start_time)/n;
                 times[7]=1;
             }
         }
         MPI_Put(&x[0], 1, MPI_INT, 0, rank*n+iter, 1, 
                 MPI_INT, win);   
     }
+    /* gathering total rank times to rank 0 */
+    rank_time = MPI_Wtime()-start_rank_time;
+    MPI_Put(&rank_time, 1, MPI_DOUBLE, 0, rank, 1, MPI_DOUBLE,
+             time_win);
 
-    printf("mean time for %d: %f %f %f %f (ms)\n",rank, times[0]*1000, times[1]*1000
+    /* makes sure everything is sent to rank 0*/
+    MPI_Win_fence(MPI_MODE_NOSUCCEED,win);
+    MPI_Win_fence(MPI_MODE_NOSUCCEED,time_win);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /*  Printing out the times in the order of 25, 50, 75 and 100 
+        along the rows and the ranks along the column axis */
+    printf("rank %d: %.3f %.3f %.3f %.3f (ms)\n",rank, times[0]*1000, times[1]*1000
         , times[2]*1000, times[3]*1000);
+    /* printing total time of ranks */    
+    if(rank==0) {
+        double max_time =0;
+        for(int i=0;i<size;i++){
+            if(rank_times[i]>max_time) max_time=rank_times[i];
+        }
+        printf("slowest total rank time = %.3fs\n",max_time);
+    }
 
-        /* writing the output */
+    
+
+        /* writing the output file */
     if(rank == 0 && output_status==1){
 		if (0 != write_output(output_name, results, N)) {
             printf("could not write output\n");
 			return 2;
 		}
     }
-
-    
-    MPI_Win_fence(MPI_MODE_NOSUCCEED, win);
+    /* freeing memmory and closing windows */
     if(rank==0) MPI_Free_mem(results);
-    MPI_Win_free(&win);
-    free(w); free(P_vals);
+    MPI_Win_free(&win);  
+    free(w); free(P_vals), free(x);
     MPI_Finalize();
     return 0;
 }
