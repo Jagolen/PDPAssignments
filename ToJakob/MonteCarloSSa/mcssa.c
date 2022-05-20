@@ -82,17 +82,20 @@ int main(int argc, char **argv){
             prop(x, w);
             a0=0;
             for(i=0;i<15;i++) a0 += w[i];
-            u1 = (double)rand()/RAND_MAX;
-            u2 = (double)rand()/RAND_MAX;
+            u1 = ((double)(rand()%1000000)+1)/(1000001);
+            u2 = ((double)(rand()%1000000)+1)/(1000001);
             dt = -log(u1)/a0;
-            more = less = 0;
+            more = 0;
+            less = 0;
             r = 0;
             
             /*  finding w(i) sums between a0*u2 */
+
             while(!(less<a0*u2 && more>=a0*u2)){
                 more+=w[r];
                 if(r>0) less+=w[r-1];
                 if(r>14){
+                    printf("%f %f %f\n\n",less, a0*u2, more);
                     printf("stuck in local while\n");
                     return 1;
                 }
@@ -150,15 +153,15 @@ int main(int argc, char **argv){
     
 
         /* writing the output file */
-    if(rank == 0 && output_status==1){
+    if(output_status==1 && rank == 0){
 		if (0 != write_output(output_name, results, N)) {
             printf("could not write output\n");
 			return 2;
 		}
     }
     /* freeing memmory and closing windows */
-    if(rank==0) MPI_Free_mem(results);
-    MPI_Win_free(&win);  
+    if(rank==0) {MPI_Free_mem(results); MPI_Free_mem(rank_times);}
+    MPI_Win_free(&win); MPI_Win_free(&time_win)  
     free(w); free(P_vals), free(x);
     MPI_Finalize();
     return 0;

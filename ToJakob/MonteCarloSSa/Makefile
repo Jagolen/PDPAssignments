@@ -1,4 +1,4 @@
-CC = sudo mpicc
+CC = mpicc
 CFLAGS = -std=c99 -g
 LIBS = -lm
 
@@ -10,4 +10,4 @@ mcssa: mcssa.c mcssa.h
 	$(CC) $(CFLAGS) -o  $@ $< $(LIBS)
 
 clean:
-	sudo $(RM) $(BIN)
+	$(RM) $(BIN)
